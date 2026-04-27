@@ -15,6 +15,14 @@ FDIM adopts a hybrid architecture:
 
 FDIM is trained on the large-scale DCVQA dataset (16k+ samples with both conventional and neural codecs), and demonstrates strong and consistent performance across multiple public SDR/HDR VQA benchmarks.
 
+![FDIM overview](./asset/FDIM.png)
+
+<p align="center">
+  <img src="./asset/radar_sdr_all_in_one.png" alt="SDR radar results" width="32%" />
+  <img src="./asset/radar_hdr_all_in_one.png" alt="HDR radar results" width="32%" />
+  <img src="./asset/bubble_plot.png" alt="Bubble plot results" width="32%" />
+</p>
+
 The software package offers one video quality metrics to evaluate a single compressed video or a set of compressed videos, in YUV or RGB formats.
 
 ## Installation
