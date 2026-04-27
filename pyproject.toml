@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "FDIM"
+version = "0.2.0"
+description = "Compressed Video Quality Assessemnt Tool"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
+dependencies = [
+    "torch==2.0.1", "torchvision==0.15.2","numpy==1.26.0", "scipy", "pandas",
+    "opencv-python", "tqdm", "pillow", "imageio", "ffmpeg-python", "scikit-image"
+]
+
+
+[tool.setuptools.packages.find]
+exclude = ["data*"]
+
+[tool.wheel]
+exclude = ["data*"]
