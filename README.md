@@ -1,29 +1,50 @@
 # FDIM
 
+[![arXiv](https://img.shields.io/badge/arXiv-2604.24123-b31b1b.svg)](https://arxiv.org/abs/2604.24123)
+
 ## Introduction
 
-FDIM is a feature-distance-based generic VQA metric that generalizes across:
+FDIM is a feature-distance-based video quality assessment (VQA) metric designed to generalize across:
 
 - Traditional and neural codecs
 - SDR and HDR formats
 - Diverse resolutions and content types
 
-FDIM adopts a hybrid architecture:
+FDIM uses a hybrid architecture consisting of:
 
-- **Deep branch**: learns multi-scale representations to capture distortions from low-level fidelity degradation to high-level semantic differences, with a content-adaptive feature comparison mechanism.
-- **Hand-crafted branch**: enhances robustness and generalization across domains.
+- **Deep branch**: learns multi-scale representations to capture distortions ranging from low-level fidelity degradation to high-level semantic differences, using a content-adaptive feature comparison mechanism.
+- **Hand-crafted branch**: improves robustness and generalization across domains.
 
-FDIM is trained on the large-scale DCVQA dataset (16k+ samples with both conventional and neural codecs), and demonstrates strong and consistent performance across multiple public SDR/HDR VQA benchmarks.
+FDIM is trained on the large-scale DCVQA dataset (16k+ samples covering both conventional and neural codecs) and delivers strong, consistent performance across multiple public SDR and HDR VQA benchmarks.
 
 ![FDIM overview](./asset/FDIM.png)
 
 <p align="center">
-  <img src="./asset/radar_sdr_all_in_one.png" alt="SDR radar results" width="32%" />
-  <img src="./asset/radar_hdr_all_in_one.png" alt="HDR radar results" width="32%" />
-  <img src="./asset/bubble_plot.png" alt="Bubble plot results" width="32%" />
+  <img src="./asset/radar_sdr_all_in_one.png" alt="SDR radar results" width="48%" />
+  <img src="./asset/radar_hdr_all_in_one.png" alt="HDR radar results" width="48%" />
 </p>
 
-The software package offers one video quality metrics to evaluate a single compressed video or a set of compressed videos, in YUV or RGB formats.
+<p align="center">
+  <img src="./asset/bubble_plot.png" alt="Bubble plot results" width="48%" />
+</p>
+
+The package supports quality evaluation for either a single compressed video or a collection of compressed videos in YUV or RGB format.
+
+## Citation
+
+If you find this work useful, please cite:
+
+```bibtex
+@misc{wang2026fdimfeaturedistancebasedgenericvideo,
+  title={FDIM: A Feature-distance-based Generic Video Quality Metric for Versatile Codecs},
+  author={Jiayi Wang and Lichun Zhang and Xiaoqi Zhuang and Jiaqi Zhang and Lu Yu and Yin Zhao},
+  year={2026},
+  eprint={2604.24123},
+  archivePrefix={arXiv},
+  primaryClass={cs.CV},
+  url={https://arxiv.org/abs/2604.24123}
+}
+```
 
 ## Installation
 
@@ -68,7 +89,7 @@ The current repository uses `./fdim/dist/checkpoints/dist_5.0.0.ckpt` by default
 
 ### 2. Prepare video information file
 
-Create a CSV file in `./data/dataset/` and enter the information of all the video you want to evaluate as follow: 
+Create a CSV file in `./data/dataset/` and enter the information of all the video you want to evaluate as follow:
 
 | ref_name                         | dis_name                                         | mos         | ref_width | ref_height | dis_width | dis_height | ref_bits | dis_bits |
 | -------------------------------- | ------------------------------------------------ | ----------- | --------- | ---------- | --------- | ---------- | -------- | -------- |
