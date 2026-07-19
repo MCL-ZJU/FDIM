@@ -63,7 +63,23 @@ conda activate fdim
 
 ### Install packages for inference
 
-Run the following command from the repository root:
+Install the released package from PyPI:
+
+```
+pip install fdim
+```
+
+The PyPI package provides a command line entry point named `fdim`. Verify the
+installation with:
+
+```
+fdim --version
+fdim --help
+fdim single --help
+fdim batch --help
+```
+
+For local development, run the following command from the repository root:
 
 ```
 pip install -e .
@@ -77,9 +93,55 @@ bash install.sh
 
 Note: `install.sh` will create and activate a `conda` environment named `fdim` automatically. If you already created and activated the environment manually, prefer `pip install -e .` to avoid duplicated setup.
 
+### CLI quick start
+
+After `pip install fdim`, use the installed `fdim` command:
+
+| Command | Purpose |
+| ------- | ------- |
+| `fdim single` | Evaluate one reference/distorted video pair. |
+| `fdim batch` | Evaluate all pairs listed in a CSV file. |
+
+For regular SDR/RGB encoded videos, the minimal single-video command is:
+
+```
+fdim single \
+    --ref /path/to/reference.mp4 \
+    --dis /path/to/distorted.mp4 \
+    --video_temp_path /tmp/fdim_video_temp/ \
+    --gpu_idx 0
+```
+
+For raw YUV inputs, provide format, resolution, and bit depth explicitly:
+
+```
+fdim single \
+    --ref /path/to/reference.yuv \
+    --dis /path/to/distorted.yuv \
+    --ref_fmt yuv420p10le \
+    --dis_fmt yuv420p10le \
+    --ref_width 1920 \
+    --ref_height 1080 \
+    --dis_width 1920 \
+    --dis_height 1080 \
+    --ref_bit_depth 10 \
+    --dis_bit_depth 10 \
+    --video_temp_path /tmp/fdim_video_temp/ \
+    --gpu_idx 0
+```
+
+Common CLI options:
+
+- `--model_path`: override the packaged default checkpoint.
+- `--input_resolution`: resize frames before the deep branch, for example `1080` for faster 4K inference.
+- `--calc_interval`: evaluate the deep branch every N frames. `1` uses every frame.
+- `--resize True`: resize the distorted video to the reference resolution when they differ.
+- `--preprocess pu21 --display_model <name>`: enable HDR PU21 preprocessing.
+- `--video_temp_path`: directory for temporary YUV files. Use a fast scratch directory such as `/tmp/fdim_video_temp/` for large videos.
+
 ## Instruction to run FDIM
 
-### 1. Download the chekpoint/model
+### 1. Download the checkpoint/model
 
 The default checkpoint path used by the scripts is:
 
@@ -107,7 +169,24 @@ If your yuv videos are 8bit, you don't need the "ref_bits" and "dis_bits" column
 
 #### Evaluate the quality of all videos in a dataset
 
-   Add the execute permission.
+After `pip install fdim`, use the batch CLI:
+
+```
+fdim batch \
+    --save_dir ./data/result \
+    --save_name fdim_test \
+    --ref_dir <path_to_reference_video_dir> \
+    --dis_dir <path_to_distorted_video_dir> \
+    --csv_path <path_to_csv_file> \
+    --ref_fmt rgb \
+    --dis_fmt rgb \
+    --preprocess none \
+    --video_temp_path ./data/video_temp/ \
+    --gpu_idx 0
+```
+
+If you run from source with the legacy scripts, make sure the VMAF executable
+has execute permission.
 
     chmod +x ./fdim/vmaf/vmaf
 
@@ -154,6 +233,33 @@ If your yuv videos are 8bit, you don't need the "ref_bits" and "dis_bits" column
    ```
 
 #### Evaluate the quality of a test video
+
+After `pip install fdim`, use the single-video CLI:
+
+```
+fdim single \
+    --ref <ref_video_path> \
+    --dis <dis_video_path> \
+    --video_temp_path ./data/video_temp/ \
+    --gpu_idx 0
+```
+
+For 10-bit encoded videos in containers such as MP4, keep `--ref_fmt rgb` and
+`--dis_fmt rgb`, but set the bit depth so the VMAF branch converts to the
+correct YUV format:
+
+```
+fdim single \
+    --ref /path/to/ref_10bit.mp4 \
+    --dis /path/to/dis_10bit.mp4 \
+    --ref_fmt rgb \
+    --dis_fmt rgb \
+    --ref_bit_depth 10 \
+    --dis_bit_depth 10 \
+    --input_resolution 1080 \
+    --video_temp_path /tmp/fdim_video_temp/ \
+    --gpu_idx 0
+```
 
 1. If the reference video and distorted video is not in YUV format.
 
