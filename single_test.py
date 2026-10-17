@@ -92,6 +92,10 @@ def fdim():
         type=str,
         default="default",
         help="If parameter of 'resize' is True, this parameter must be provided, default parameter is 'default'")
+    parser.add_argument('--inference_mode', choices=['stream', 'legacy'], default='stream')
+    parser.add_argument('--prefetch', type=int, choices=[0, 1, 2], default=0)
+    parser.add_argument('--pipeline', action='store_true')
+    parser.add_argument('--parallel_branches', action='store_true')
     parser.add_argument('--n_threads', type=str, default=32, help="thread count for VMAF and ffmepg")
     parser.add_argument('--vmaf_version', type=str, default=None, help="vmaf version")
     parser.add_argument('--video_temp_path', type=str, default='./data/video_temp/', help="storage path for temporal file")

@@ -28,7 +28,18 @@ def run_model(
         vmaf_version=None,
         video_temp_path='./video_temp/',
         preprocess="none",
-        display_model=None):
+        display_model=None,
+        inference_mode="stream", frame_limit=-1, return_frame_scores=False,
+        frame_batch_size=1, prefetch=0, pipeline=False, uint8_transfer=True,
+        parallel_branches=False):
+
+    if inference_mode == "stream" or parallel_branches:
+        return _run_streaming(ref_path, dis_path, model, device, ref_fmt, dis_fmt,
+            ref_width, ref_height, dis_width, dis_height, ref_bit_depth, dis_bit_depth,
+            resize_flag, resize_method, input_resolution, calc_interval, n_threads,
+            vmaf_version, video_temp_path, preprocess, display_model, inference_mode,
+            frame_batch_size, prefetch, pipeline, uint8_transfer, frame_limit,
+            parallel_branches, return_frame_scores)
 
     temp_root = video_temp_path
     os.makedirs(temp_root, exist_ok=True)
@@ -151,7 +162,13 @@ def run_model(
         input_resolution=input_resolution,
         calc_interval=calc_interval,
         preprocess=preprocess,
-        display_model=display_model)
+        display_model=display_model,
+        inference_mode=inference_mode, frame_limit=frame_limit,
+        return_frame_scores=return_frame_scores, frame_batch_size=frame_batch_size,
+        prefetch=prefetch, pipeline=pipeline, uint8_transfer=uint8_transfer)
+
+    if return_frame_scores:
+        deep_score, details = deep_score
 
     t23 = time.time()
     print("===========%s used time for calc dist: %ss" % (dis_name, t23 - t22))
@@ -169,4 +186,55 @@ def run_model(
     if temp_root in ref_path_yuv and ref_path_yuv.endswith("_ref.yuv"):
         os.remove(ref_path_yuv)
 
+    if return_frame_scores:
+        return fdim_score, vmaf_score, deep_score, details
     return fdim_score, vmaf_score, deep_score
+
+
+def _run_streaming(ref_path, dis_path, model, device, ref_fmt="rgb", dis_fmt="rgb",
+        ref_width=0, ref_height=0, dis_width=0, dis_height=0,
+        ref_bit_depth=8, dis_bit_depth=8, resize_flag=False, resize_method="default",
+        input_resolution="ori", calc_interval=1, n_threads=32, vmaf_version=None,
+        video_temp_path="./video_temp/", preprocess="none", display_model=None,
+        inference_mode="stream", frame_batch_size=1, prefetch=0, pipeline=False,
+        uint8_transfer=True, frame_limit=-1, parallel_branches=False, return_frame_scores=False):
+    """Return (FDIM, raw VMAF, mapped deep); streaming is the default.
+
+    VMAF still evaluates all source frames, irrespective of deep calc_interval.
+    Conversions use bounded FIFOs on POSIX; legacy mode uses temporary raw files.
+    """
+    from concurrent.futures import ThreadPoolExecutor
+    from utils.convert_color import vmaf_inputs
+
+    def deep():
+        return evaluate_video_gen(ref_path, dis_path, model, device,
+            ref_fmt, dis_fmt, ref_width, ref_height, dis_width, dis_height,
+            ref_bit_depth, dis_bit_depth, resize_flag, resize_method,
+            input_resolution, calc_interval, preprocess=preprocess,
+            display_model=display_model, inference_mode=inference_mode,
+            frame_batch_size=frame_batch_size, prefetch=prefetch, pipeline=pipeline,
+            uint8_transfer=uint8_transfer, frame_limit=frame_limit, return_frame_scores=return_frame_scores)
+
+    def vmaf():
+        with vmaf_inputs(ref_path, dis_path, ref_fmt, dis_fmt, ref_width, ref_height,
+                dis_width, dis_height, ref_bit_depth, dis_bit_depth, resize_flag,
+                resize_method, n_threads, video_temp_path, inference_mode == "stream",
+                frame_limit) as (paths, pix_fmt, bits, producers):
+            return calc_vmaf(paths[0], paths[1], ref_width, ref_height,
+                pix_fmt=pix_fmt, bit_depth=bits, model_version=vmaf_version,
+                subsample=1, n_threads=n_threads, video_temp_path=video_temp_path,
+                producer_processes=producers)
+
+    if parallel_branches:
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(vmaf)
+            deep_score = deep()
+            vmaf_score = future.result()
+    else:
+        vmaf_score = vmaf()
+        deep_score = deep()
+    if return_frame_scores:
+        deep_score, details = deep_score
+    fdim_score = (deep_score + map_score(vmaf_score, score_flag="VMAF")) / 2
+    result = (float(fdim_score), float(vmaf_score), float(deep_score))
+    return (*result, details) if return_frame_scores else result
