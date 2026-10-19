@@ -101,7 +101,26 @@ def evaluate_video_gen(
         calc_interval=1,
         transform=None,
         preprocess="none",
-        display_model=None):
+        display_model=None,
+        inference_mode="stream", frame_limit=-1, return_frame_scores=False,
+        frame_batch_size=1, prefetch=0, pipeline=False, uint8_transfer=True):
+
+    if inference_mode not in ("stream", "legacy") or calc_interval < 1:
+        raise ValueError("Expected stream/legacy inference and a positive interval")
+    if frame_batch_size < 1 or prefetch not in (0, 1, 2):
+        raise ValueError("Expected positive batch size and prefetch 0/1/2")
+    if frame_limit == 0 or frame_limit < -1:
+        raise ValueError("frame_limit must be -1 or positive")
+    if (inference_mode == "stream" and preprocess == "none" and input_resolution == "ori"
+            and not resize_flag and transform is None and ref_bit_depth == dis_bit_depth == 8
+            and ref_fmt in ("rgb", "yuv420p") and dis_fmt in ("rgb", "yuv420p")):
+        from .streaming import evaluate_stream
+        score, details = evaluate_stream(model, device, (data_ref_path, data_dis_path),
+            (ref_fmt, dis_fmt), (ref_width, dis_width), (ref_height, dis_height),
+            calc_interval, frame_limit, frame_batch_size, prefetch, pipeline, uint8_transfer)
+        return (score, details) if return_frame_scores else score
+    if frame_batch_size != 1 or prefetch or pipeline:
+        raise ValueError("Batching/prefetch/pipeline require native 8-bit SDR stream inference")
 
     # if model is original resolution input, change parameter input_resolution="ori".
 
@@ -112,7 +131,6 @@ def evaluate_video_gen(
         # quality metrics for HDR" (Mantiuk and Azimi, PCS 2021).
         if not display_model or str(display_model).lower() == "none":
             display_model = "standard_hdr_pq_tv"
-        frame_limit = -1
         vs = None
         try:
             vs = _build_pu21_video_source(
@@ -127,7 +145,7 @@ def evaluate_video_gen(
             )
 
             _, _, total_frames = vs.get_video_size()
-            effective_frames = total_frames
+            effective_frames = min(total_frames, frame_limit) if frame_limit > 0 else total_frames
 
             deep_score = []
             with torch.no_grad():
@@ -163,6 +181,8 @@ def evaluate_video_gen(
 
             video_deep_score_ori = np.mean(deep_score)
             video_deep_score = map_score(video_deep_score_ori, score_flag="reg")
+            if return_frame_scores:
+                return video_deep_score, {"raw_scores": deep_score, "frame_indices": list(range(0, effective_frames, calc_interval)), "inference_mode": "legacy"}
             return video_deep_score
         finally:
             if vs is not None and hasattr(vs, "close"):
@@ -216,7 +236,7 @@ def evaluate_video_gen(
     frm_idx = 0
 
     with torch.no_grad():
-        while True:
+        while frame_limit < 0 or frm_idx < frame_limit:
             ref_flag, ref_rgb = ref_reader.next()
             dis_flag, dis_rgb = dis_reader.next()
             if not ref_flag or not dis_flag:
@@ -248,4 +268,6 @@ def evaluate_video_gen(
 
     ref_reader.close()
     dis_reader.close()
+    if return_frame_scores:
+        return video_deep_score, {"raw_scores": deep_score, "frame_indices": list(range(0, frm_idx, calc_interval)), "inference_mode": "legacy"}
     return video_deep_score

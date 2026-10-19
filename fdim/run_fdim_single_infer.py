@@ -82,7 +82,11 @@ def main(args):
         vmaf_version=vmaf_version,
         video_temp_path=video_temp_path,
         preprocess=preprocess,
-        display_model=display_model)
+        display_model=display_model,
+            inference_mode=getattr(args, 'inference_mode', 'stream'),
+            prefetch=getattr(args, 'prefetch', 0),
+            pipeline=getattr(args, 'pipeline', False),
+            parallel_branches=getattr(args, 'parallel_branches', False))
 
     t11 = time.time()
     print('%s video score is : %s' % (dis_path, fdim_score))
@@ -188,6 +192,10 @@ if __name__ == '__main__':
         type=str,
         default="default",
         help="If parameter of 'resize' is True, this parameter must be provided, default parameter is 'default'")
+    parser.add_argument('--inference_mode', choices=['stream', 'legacy'], default='stream')
+    parser.add_argument('--prefetch', type=int, choices=[0, 1, 2], default=0)
+    parser.add_argument('--pipeline', action='store_true')
+    parser.add_argument('--parallel_branches', action='store_true')
     parser.add_argument('--n_threads', type=str, default=32, help="thread count for VMAF and ffmepg")
     parser.add_argument('--vmaf_version', type=str, default=None, help="vmaf version")
     parser.add_argument('--video_temp_path', type=str, default='./data/video_temp/', help="storage path for temporal file")

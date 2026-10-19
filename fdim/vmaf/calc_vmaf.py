@@ -2,6 +2,8 @@
 import os
 import subprocess
 import platform
+import stat
+from pathlib import Path
 import urllib.request
 from urllib.error import URLError
 
@@ -21,6 +23,8 @@ def _bytes_per_frame(width, height, pix_fmt, bit_depth):
     return int(samples * bytes_per_sample)
 
 def _validate_yuv_file(path, width, height, pix_fmt, bit_depth, label):
+    if stat.S_ISFIFO(os.stat(path).st_mode):
+        return
     file_size = os.path.getsize(path)
     bpf = _bytes_per_frame(width, height, pix_fmt, bit_depth)
     if bpf <= 0:
@@ -44,17 +48,17 @@ def download_model(url, model_path):
           
 
 def calc_vmaf(ref_video_path, dis_video_path, width, height, pix_fmt="420", bit_depth=8, model_version=None, subsample=1,
-             n_threads=1, video_temp_path='./vmaf/temp'):
+             n_threads=1, video_temp_path='./vmaf/temp', producer_processes=()):
 
     os_system = platform.system().lower()
     print("os_system: ", os_system)
 
     if os_system == "linux":
         url = "https://github.com/Netflix/vmaf/releases/download/v3.0.0/vmaf"
-        model_path = "fdim/vmaf/vmaf"
+        model_path = str(Path(__file__).with_name("vmaf"))
     elif os_system == "windows":
         url = "https://github.com/Netflix/vmaf/releases/download/v3.0.0/vmaf.exe"
-        model_path = r"fdim\vmaf\vmaf.exe"
+        model_path = str(Path(__file__).with_name("vmaf.exe"))
     else:
         raise Exception(f"not support system {os_system}")
 
@@ -82,24 +86,26 @@ def calc_vmaf(ref_video_path, dis_video_path, width, height, pix_fmt="420", bit_
         else:
             model_version = "vmaf_v0.6.1"
 
-    input_para = "--reference {} --distorted {} --width {} --height {} --model version={} --pixel_format {} --bitdepth {} --subsample {} --threads {} --output {}".format(
-        ref_video_path,
-        dis_video_path,
-        width,
-        height,
-        model_version,
-        pix_fmt,
-        bit_depth,
-        subsample,
-        n_threads,
-        vmaf_result_txt,
-    )
-
-
-    cmd_exe = model_path + " "
-    cmd_vmaf = cmd_exe + input_para
+    command = [model_path, "--reference", str(ref_video_path), "--distorted", str(dis_video_path),
+        "--width", str(width), "--height", str(height), "--model", "version=" + model_version,
+        "--pixel_format", pix_fmt, "--bitdepth", str(bit_depth), "--subsample", str(subsample),
+        "--threads", str(n_threads), "--output", vmaf_result_txt]
+    cmd_vmaf = repr(command)
     print("cmd vmaf: ", cmd_vmaf)
-    proc = subprocess.run(cmd_vmaf, shell=True, text=True, capture_output=True)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
+    try:
+        while True:
+            try:
+                stdout, stderr = process.communicate(timeout=.2)
+                break
+            except subprocess.TimeoutExpired:
+                if any(p.poll() not in (None, 0) for p in producer_processes):
+                    raise RuntimeError("FFmpeg input conversion failed before VMAF completed")
+    finally:
+        if process.poll() is None:
+            process.kill()
+            process.communicate()
+    proc = subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
     if proc.returncode != 0:
         raise RuntimeError(
             f"VMAF failed (exit_code={proc.returncode}).\n"
