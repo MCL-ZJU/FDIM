@@ -83,6 +83,7 @@ def main(args):
         video_temp_path=video_temp_path,
         preprocess=preprocess,
         display_model=display_model,
+            pu21_mode=getattr(args, 'pu21_mode', 'eager'),
             inference_mode=getattr(args, 'inference_mode', 'stream'),
             prefetch=getattr(args, 'prefetch', 0),
             pipeline=getattr(args, 'pipeline', False),
@@ -192,6 +193,8 @@ if __name__ == '__main__':
         type=str,
         default="default",
         help="If parameter of 'resize' is True, this parameter must be provided, default parameter is 'default'")
+    parser.add_argument('--pu21_mode', choices=['legacy', 'eager', 'cuda_graph'], default='eager',
+                        help='Exact HDR preprocessing; optional CUDA graph replay')
     parser.add_argument('--inference_mode', choices=['stream', 'legacy'], default='stream')
     parser.add_argument('--prefetch', type=int, choices=[0, 1, 2], default=0)
     parser.add_argument('--pipeline', action='store_true')

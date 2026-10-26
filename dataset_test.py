@@ -105,6 +105,8 @@ def fdim():
         type=str,
         default="default",
         help="If parameter of 'resize' is True, this parameter must be provided, default parameter is 'default'")
+    parser.add_argument('--pu21_mode', choices=['legacy', 'eager', 'cuda_graph'], default='eager',
+                        help='Exact HDR preprocessing; optional CUDA graph replay')
     parser.add_argument('--inference_mode', choices=['stream', 'legacy'], default='stream')
     parser.add_argument('--prefetch', type=int, choices=[0, 1, 2], default=0)
     parser.add_argument('--pipeline', action='store_true')

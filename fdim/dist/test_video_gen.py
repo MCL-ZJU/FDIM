@@ -103,8 +103,11 @@ def evaluate_video_gen(
         preprocess="none",
         display_model=None,
         inference_mode="stream", frame_limit=-1, return_frame_scores=False,
-        frame_batch_size=1, prefetch=0, pipeline=False, uint8_transfer=True):
+        frame_batch_size=1, prefetch=0, pipeline=False, uint8_transfer=True,
+        pu21_mode="eager", reference_frame_cache=None):
 
+    if pu21_mode not in ("legacy", "eager", "cuda_graph"):
+        raise ValueError("Expected legacy/eager/cuda_graph PU21 preprocessing")
     if inference_mode not in ("stream", "legacy") or calc_interval < 1:
         raise ValueError("Expected stream/legacy inference and a positive interval")
     if frame_batch_size < 1 or prefetch not in (0, 1, 2):
@@ -144,13 +147,35 @@ def evaluate_video_gen(
                 bit_depth=ref_bit_depth if _is_yuv_file(data_ref_path) else None,
             )
 
+            from .pu21 import configure_source, skip_frame, reference_key
+            if pu21_mode != "legacy":
+                configure_source(vs, use_cuda_graph=pu21_mode == "cuda_graph")
             _, _, total_frames = vs.get_video_size()
             effective_frames = min(total_frames, frame_limit) if frame_limit > 0 else total_frames
 
+            cache_key = (reference_key(data_ref_path, vs, device, ref_width, ref_height,
+                                       ref_bit_depth, input_resolution, calc_interval)
+                         if reference_frame_cache is not None else None)
             deep_score = []
             with torch.no_grad():
-                for frm_idx in range(0, effective_frames, int(calc_interval)):
-                    ref = vs.get_reference_frame(frm_idx, device=device, colorspace="RGB2020pu21")
+                for frm_idx in range(effective_frames):
+                    if frm_idx % int(calc_interval):
+                        for side in ("reference", "test"):
+                            if pu21_mode == "legacy" and not _is_yuv_file(data_ref_path):
+                                getattr(vs, "get_" + side + "_frame")(
+                                    frm_idx, device=device, colorspace="RGB2020pu21")
+                            else:
+                                skip_frame(vs, side, frm_idx, device)
+                        continue
+                    cached_ref = (reference_frame_cache.get((cache_key, frm_idx), device)
+                                  if reference_frame_cache is not None else None)
+                    if cached_ref is None:
+                        ref = vs.get_reference_frame(frm_idx, device=device, colorspace="RGB2020pu21")
+                    else:
+                        skip_frame(vs, "reference", frm_idx, device)
+                        ref = cached_ref
+                    if reference_frame_cache is not None and cached_ref is None:
+                        reference_frame_cache.put((cache_key, frm_idx), ref)
                     dis = vs.get_test_frame(frm_idx, device=device, colorspace="RGB2020pu21")
                     ref_img_data = _to_bchw(ref).to(dtype=torch.float32).clamp(0.0, 1.0)
                     dis_img_data = _to_bchw(dis).to(dtype=torch.float32).clamp(0.0, 1.0)

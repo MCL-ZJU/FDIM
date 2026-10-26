@@ -31,7 +31,7 @@ def run_model(
         display_model=None,
         inference_mode="stream", frame_limit=-1, return_frame_scores=False,
         frame_batch_size=1, prefetch=0, pipeline=False, uint8_transfer=True,
-        parallel_branches=False):
+        parallel_branches=False, pu21_mode="eager", reference_frame_cache=None):
 
     if inference_mode == "stream" or parallel_branches:
         return _run_streaming(ref_path, dis_path, model, device, ref_fmt, dis_fmt,
@@ -39,7 +39,7 @@ def run_model(
             resize_flag, resize_method, input_resolution, calc_interval, n_threads,
             vmaf_version, video_temp_path, preprocess, display_model, inference_mode,
             frame_batch_size, prefetch, pipeline, uint8_transfer, frame_limit,
-            parallel_branches, return_frame_scores)
+            parallel_branches, return_frame_scores, pu21_mode, reference_frame_cache)
 
     temp_root = video_temp_path
     os.makedirs(temp_root, exist_ok=True)
@@ -165,7 +165,8 @@ def run_model(
         display_model=display_model,
         inference_mode=inference_mode, frame_limit=frame_limit,
         return_frame_scores=return_frame_scores, frame_batch_size=frame_batch_size,
-        prefetch=prefetch, pipeline=pipeline, uint8_transfer=uint8_transfer)
+        prefetch=prefetch, pipeline=pipeline, uint8_transfer=uint8_transfer,
+        pu21_mode=pu21_mode, reference_frame_cache=reference_frame_cache)
 
     if return_frame_scores:
         deep_score, details = deep_score
@@ -197,7 +198,8 @@ def _run_streaming(ref_path, dis_path, model, device, ref_fmt="rgb", dis_fmt="rg
         input_resolution="ori", calc_interval=1, n_threads=32, vmaf_version=None,
         video_temp_path="./video_temp/", preprocess="none", display_model=None,
         inference_mode="stream", frame_batch_size=1, prefetch=0, pipeline=False,
-        uint8_transfer=True, frame_limit=-1, parallel_branches=False, return_frame_scores=False):
+        uint8_transfer=True, frame_limit=-1, parallel_branches=False, return_frame_scores=False,
+        pu21_mode="eager", reference_frame_cache=None):
     """Return (FDIM, raw VMAF, mapped deep); streaming is the default.
 
     VMAF still evaluates all source frames, irrespective of deep calc_interval.
@@ -213,7 +215,8 @@ def _run_streaming(ref_path, dis_path, model, device, ref_fmt="rgb", dis_fmt="rg
             input_resolution, calc_interval, preprocess=preprocess,
             display_model=display_model, inference_mode=inference_mode,
             frame_batch_size=frame_batch_size, prefetch=prefetch, pipeline=pipeline,
-            uint8_transfer=uint8_transfer, frame_limit=frame_limit, return_frame_scores=return_frame_scores)
+            uint8_transfer=uint8_transfer, frame_limit=frame_limit, return_frame_scores=return_frame_scores,
+            pu21_mode=pu21_mode, reference_frame_cache=reference_frame_cache)
 
     def vmaf():
         with vmaf_inputs(ref_path, dis_path, ref_fmt, dis_fmt, ref_width, ref_height,
