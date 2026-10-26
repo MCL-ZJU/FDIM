@@ -310,3 +310,12 @@ python single_test.py \
 #### Low-complexity implementation for 4K videos
 
 If your input videos are 4K and you want faster inference, set the resolution parameter `--input_resolution 1080` to downsample frames before the deep model. In our experiments, this significantly improves runtime while only slightly reducing objective-subjective consistency.
+
+### HDR preprocessing performance
+
+HDR inference now reuses PU21 constants and avoids converting frames excluded by
+interval sampling. `--pu21_mode legacy` selects the comparison path;
+`--pu21_mode cuda_graph` enables optional CUDA graph replay. A bounded reference
+frame cache is also available through the Python API. See
+[exact HDR preprocessing and benchmarking](docs/pu21-performance.md) for usage,
+validation and measured performance.

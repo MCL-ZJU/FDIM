@@ -342,7 +342,7 @@ class vvdp_display_photo_eotf(vvdp_display_photometry):
     # the display.
     def forward( self, V ):
         
-        if self.EOTF != 'linear' and ((V>1).flatten().any() or (V<0).flatten().any()):
+        if getattr(self, 'check_input_range', True) and self.EOTF != 'linear' and ((V>1).flatten().any() or (V<0).flatten().any()):
             logging.warning("Pixel outside the valid range 0-1")
             V = V.clamp( 0., 1. )
             
